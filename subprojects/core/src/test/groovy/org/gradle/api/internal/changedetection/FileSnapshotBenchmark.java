@@ -2,6 +2,7 @@ package org.gradle.api.internal.changedetection;
 
 import groovy.lang.Closure;
 import org.gradle.CacheUsage;
+import org.gradle.api.UncheckedIOException;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileTree;
 import org.gradle.api.file.FileVisitor;
@@ -17,20 +18,25 @@ import org.gradle.util.Clock;
 import org.gradle.util.GUtil;
 import org.gradle.util.TemporaryFolder;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
-import java.io.File;
+import java.io.*;
 import java.util.*;
 
 public class FileSnapshotBenchmark {
-    @Rule public TemporaryFolder tmpDir = new TemporaryFolder();
+    @Rule
+    public TemporaryFolder tmpDir = new TemporaryFolder();
+    @Rule
+    public TestName name = new TestName();
     final DefaultCacheRepository cacheRepository = new DefaultCacheRepository(tmpDir.getDir(), CacheUsage.ON, new DefaultCacheFactory());
     final FileSnapshotter snapshotter = new DefaultFileSnapshotter(new CachingHasher(new DefaultHasher(), cacheRepository));
 
     @Before
     public void setup() {
-        System.out.println("-----");
+        System.out.println("----- " + name.getMethodName());
     }
 
     @Test
@@ -40,22 +46,22 @@ public class FileSnapshotBenchmark {
         }
     }
 
-    @Test
+    @Test @Ignore
     public void iterateLargeFileCollection() {
         iterate(getLargeSourceFiles());
     }
 
-    @Test
+    @Test @Ignore
     public void iterateLargeFileCollectionViaCache() {
         iterate(new CachingFileIterable(getLargeSourceFiles()));
     }
 
-    @Test
+    @Test @Ignore
     public void iterateSmallFileCollection() {
         iterate(getSmallSourceFiles());
     }
 
-    @Test
+    @Test @Ignore
     public void iterateSmallFileCollectionViaCache() {
         iterate(new CachingFileIterable(getSmallSourceFiles()));
     }
@@ -72,7 +78,12 @@ public class FileSnapshotBenchmark {
 
     @Test
     public void snapshotLargeFileCollectionViaSnapshotCache() {
-        snapshot(getLargeSourceFiles(), new CachingFileSnapshotter());
+        snapshot(getLargeSourceFiles(), cachingSnapshotter());
+    }
+
+    @Test
+    public void snapshotLargeFileCollectionViaPersistentSnapshotCache() {
+        snapshot(getLargeSourceFiles(), persistentCachingSnapshotter());
     }
 
     @Test
@@ -87,7 +98,20 @@ public class FileSnapshotBenchmark {
 
     @Test
     public void snapshotSmallFileCollectionViaSnapshotCache() {
-        snapshot(getSmallSourceFiles(), new CachingFileSnapshotter());
+        snapshot(getSmallSourceFiles(), cachingSnapshotter());
+    }
+
+    @Test
+    public void snapshotSmallFileCollectionViaPersistentSnapshotCache() {
+        snapshot(getSmallSourceFiles(), persistentCachingSnapshotter());
+    }
+
+    private FileSnapshotter cachingSnapshotter() {
+        return new CachingFileSnapshotter();
+    }
+
+    private FileSnapshotter persistentCachingSnapshotter() {
+        return new PersistentCachingFileSnapshotter(tmpDir.createDir("snapshot-cache"));
     }
 
     private FileCollection getLargeSourceFiles() {
@@ -252,6 +276,47 @@ public class FileSnapshotBenchmark {
                 cache.put(files, snapshot);
             }
             return snapshot;
+        }
+    }
+
+    private class PersistentCachingFileSnapshotter implements FileSnapshotter {
+        final Map<FileCollection, File> cache = new HashMap<FileCollection, File>();
+        private final File tmpDir;
+
+        private PersistentCachingFileSnapshotter(File tmpDir) {
+            this.tmpDir = tmpDir;
+        }
+
+        public FileCollectionSnapshot emptySnapshot() {
+            throw new UnsupportedOperationException();
+        }
+
+        public FileCollectionSnapshot snapshot(FileCollection files) {
+            try {
+                File snapshotFile = cache.get(files);
+                if (snapshotFile == null) {
+                    assert cache.size() == 0;
+                    FileCollectionSnapshot snapshot = snapshotter.snapshot(files);
+                    snapshotFile = new File(tmpDir, String.valueOf(cache.size()));
+                    ObjectOutputStream outstr = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(snapshotFile)));
+                    try {
+                        outstr.writeObject(snapshot);
+                    } finally {
+                        outstr.close();
+                    }
+                    cache.put(files, snapshotFile);
+                    return snapshot;
+                } else {
+                    ObjectInputStream instr = new ObjectInputStream(new BufferedInputStream(new FileInputStream(snapshotFile)));
+                    try {
+                        return (FileCollectionSnapshot) instr.readObject();
+                    } finally {
+                        instr.close();
+                    }
+                }
+            } catch (Exception e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }

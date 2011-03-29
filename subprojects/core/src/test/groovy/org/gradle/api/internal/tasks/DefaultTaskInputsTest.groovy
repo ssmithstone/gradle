@@ -23,15 +23,17 @@ import org.gradle.api.internal.file.FileResolver
 import org.gradle.api.file.FileTree
 import java.util.concurrent.Callable
 import org.gradle.api.file.FileCollection
+import org.gradle.api.internal.TaskInternal
+import org.gradle.api.internal.file.collections.FileTreeInternal
 
 class DefaultTaskInputsTest {
     private final File treeFile = new File('tree')
-    private final FileTree tree = [getFiles: { [treeFile] as Set}] as FileTree
+    private final FileTreeInternal tree = [getFiles: { [treeFile] as Set}] as FileTreeInternal
     private final FileResolver resolver = [
             resolve: {new File(it)},
             resolveFilesAsTree: {tree}
     ] as FileResolver
-    private final DefaultTaskInputs inputs = new DefaultTaskInputs(resolver)
+    private final DefaultTaskInputs inputs = new DefaultTaskInputs(resolver, {} as TaskInternal)
 
     @Test
     public void defaultValues() {

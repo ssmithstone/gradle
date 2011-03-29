@@ -18,7 +18,6 @@ package org.gradle.api.tasks.javadoc;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.file.FileCollection;
-import org.gradle.api.internal.file.SimpleFileCollection;
 import org.gradle.api.tasks.*;
 import org.gradle.external.javadoc.MinimalJavadocOptions;
 import org.gradle.external.javadoc.StandardJavadocDocletOptions;
@@ -37,7 +36,9 @@ import java.util.List;
  * <p>
  * If you create your own Javadoc tasks remember to specify the 'source' property!
  * Without source the javadoc task will not create any documentation. Example:
- * <pre>
+ * <pre autoTested=''>
+ * apply plugin: 'java'
+ *
  * task myJavadocs(type: Javadoc) {
  *   source = sourceSets.main.allJava
  * }
@@ -45,7 +46,17 @@ import java.util.List;
  *
  * <p>
  * An example how to create a task that runs a custom doclet implementation:
- * <pre>
+ * <pre autoTested=''>
+ * apply plugin: 'java'
+ *
+ * configurations {
+ *   jaxDoclet
+ * }
+ *
+ * dependencies {
+ *   //jaxDoclet "some.interesting:Dependency:1.0"
+ * }
+ *
  * task generateRestApiDocs(type: Javadoc) {
  *   source = sourceSets.main.allJava
  *   destinationDir = file("${reportsDir.absolutePath}/rest-api-docs")
@@ -70,7 +81,7 @@ public class Javadoc extends SourceTask {
 
     private MinimalJavadocOptions options = new StandardJavadocDocletOptions();
 
-    private FileCollection classpath = new SimpleFileCollection();
+    private FileCollection classpath = getProject().files();
 
     private String executable;
 

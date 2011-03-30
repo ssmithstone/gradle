@@ -6,8 +6,8 @@ import org.gradle.api.UncheckedIOException;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileTree;
 import org.gradle.api.file.FileVisitor;
-import org.gradle.api.internal.file.DefaultConfigurableFileTree;
 import org.gradle.api.internal.file.IdentityFileResolver;
+import org.gradle.api.internal.file.collections.DefaultConfigurableFileTree;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.StopExecutionException;
 import org.gradle.api.tasks.TaskDependency;
@@ -17,10 +17,7 @@ import org.gradle.cache.DefaultCacheRepository;
 import org.gradle.util.Clock;
 import org.gradle.util.GUtil;
 import org.gradle.util.TemporaryFolder;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TestName;
 
 import java.io.*;
@@ -44,6 +41,7 @@ public class FileSnapshotBenchmark {
         for (int i = 0; i < 4; i++) {
             doSnapshot(getLargeSourceFiles(), snapshotter);
         }
+        Assert.fail("delete me");
     }
 
     @Test @Ignore

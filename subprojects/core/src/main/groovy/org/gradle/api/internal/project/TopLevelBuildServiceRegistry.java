@@ -24,6 +24,7 @@ import org.gradle.api.artifacts.Module;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.maven.MavenFactory;
 import org.gradle.api.execution.TaskActionListener;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.*;
 import org.gradle.api.internal.artifacts.ConfigurationContainerFactory;
 import org.gradle.api.internal.artifacts.DefaultConfigurationContainerFactory;
@@ -250,11 +251,15 @@ public class TopLevelBuildServiceRegistry extends DefaultServiceRegistry impleme
 
     protected TaskArtifactStateRepository createTaskArtifactStateRepository() {
         CacheRepository cacheRepository = get(CacheRepository.class);
-        FileSnapshotter fileSnapshotter = new DefaultFileSnapshotter(
-                new CachingHasher(
-                        new DefaultHasher(),
-                        cacheRepository));
+        DefaultFileCacheListener fileCacheListener = get(DefaultFileCacheListener.class);
+        FileSnapshotter fileSnapshotter =
+                new DefaultFileSnapshotter(
+                        new CachingHasher(
+                                new DefaultHasher(),
+                                cacheRepository),
+                        fileCacheListener);
 
+        boolean cache = System.getProperty("org.gradle.snapshots.cache", "false").equals("true");
         FileSnapshotter outputFilesSnapshotter = new OutputFilesSnapshotter(fileSnapshotter, new RandomLongIdGenerator(), cacheRepository);
         return new FileCacheBroadcastTaskArtifactStateRepository(
                 new ShortCircuitTaskArtifactStateRepository(
@@ -262,7 +267,20 @@ public class TopLevelBuildServiceRegistry extends DefaultServiceRegistry impleme
                         new DefaultTaskArtifactStateRepository(cacheRepository,
                                 fileSnapshotter,
                                 outputFilesSnapshotter)),
-                new DefaultFileCacheListener());
+                cache ? fileCacheListener : new FileCacheListener() {
+                    public void cacheable(FileCollection files) {
+                    }
+
+                    public void invalidate(FileCollection files) {
+                    }
+
+                    public void invalidateAll() {
+                    }
+                });
+    }
+
+    protected DefaultFileCacheListener createFileCacheListener() {
+        return new DefaultFileCacheListener();
     }
 
     protected ScriptCompilerFactory createScriptCompileFactory() {

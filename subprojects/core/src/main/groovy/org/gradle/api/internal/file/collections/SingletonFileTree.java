@@ -36,6 +36,11 @@ public class SingletonFileTree implements MinimalFileTree {
         return String.format("file '%s'", file);
     }
 
+    @Override
+    public String toString() {
+        return getDisplayName();
+    }
+
     public void visit(FileVisitor visitor) {
         visitor.visitFile(new FileVisitDetailsImpl());
     }

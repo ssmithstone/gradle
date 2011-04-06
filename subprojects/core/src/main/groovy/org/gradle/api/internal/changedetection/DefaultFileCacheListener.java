@@ -17,29 +17,66 @@ package org.gradle.api.internal.changedetection;
 
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.file.collections.DefaultFileCollectionResolveContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.gradle.api.internal.file.collections.DirectoryFileTree;
+import org.gradle.api.internal.file.collections.MinimalFileCollection;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 
-import java.util.List;
+import java.util.*;
 
-public class DefaultFileCacheListener implements FileCacheListener {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultFileCacheListener.class);
+public class DefaultFileCacheListener implements FileCacheListener, FileSnapshotCache {
+    private static final Logger LOGGER = Logging.getLogger(DefaultFileCacheListener.class);
+    private final Set<DirectoryFileTree> cachable = new HashSet<DirectoryFileTree>();
+    private final Map<DirectoryFileTree, Map<String, Object>> snapshots = new HashMap<DirectoryFileTree, Map<String, Object>>();
 
     public void cacheable(FileCollection files) {
-        List<FileCollection> collections = new DefaultFileCollectionResolveContext().add(files).resolveAsFileCollections();
-        for (FileCollection collection : collections) {
-            LOGGER.debug("Can cache files for {}", collection);
+        List<MinimalFileCollection> collections = new DefaultFileCollectionResolveContext().add(files.getAsFileTree()).resolveAsMinimalFileCollections();
+        for (MinimalFileCollection collection : collections) {
+            if (collection instanceof DirectoryFileTree) {
+                DirectoryFileTree fileTree = (DirectoryFileTree) collection;
+//                LOGGER.lifecycle("-> Can cache snapshot for {}", fileTree.getDisplayName());
+                cachable.add(fileTree);
+            }
         }
     }
 
     public void invalidate(FileCollection files) {
-        List<FileCollection> collections = new DefaultFileCollectionResolveContext().add(files).resolveAsFileCollections();
-        for (FileCollection collection : collections) {
-            LOGGER.debug("Invalidate cached files for {}", collection);
+        List<MinimalFileCollection> collections = new DefaultFileCollectionResolveContext().add(files.getAsFileTree()).resolveAsMinimalFileCollections();
+        for (MinimalFileCollection collection : collections) {
+            if (collection instanceof DirectoryFileTree) {
+//                LOGGER.lifecycle("-> Invalidate cached snapshot for {}", collection.getDisplayName());
+                cachable.remove(collection);
+                snapshots.remove(collection);
+            }
         }
     }
 
     public void invalidateAll() {
-        LOGGER.debug("Invalidate all cached files");
+//        LOGGER.lifecycle("-> Invalidate all cached snapshots");
+        cachable.clear();
+        snapshots.clear();
+    }
+
+    public Map<String, Object> get(MinimalFileCollection fileCollection) {
+        Map<String, Object> snapshot = snapshots.get(fileCollection);
+        if (fileCollection instanceof DirectoryFileTree) {
+            if (snapshot != null) {
+                LOGGER.lifecycle("-> USING CACHED SNAPSHOT FOR {}", fileCollection.getDisplayName());
+            } else {
+//                LOGGER.lifecycle("-> no cached snapshot for {}", fileCollection.getDisplayName());
+            }
+        }
+        return snapshot;
+    }
+
+    public void put(MinimalFileCollection fileCollection, Map<String, Object> snapshot) {
+        if (cachable.contains(fileCollection)) {
+//            LOGGER.lifecycle("-> caching snapshot for {}", fileCollection.getDisplayName());
+            snapshots.put((DirectoryFileTree) fileCollection, snapshot);
+        } else {
+            if (fileCollection instanceof DirectoryFileTree) {
+//                LOGGER.lifecycle("-> ignoring snapshot for {}", fileCollection.getDisplayName());
+            }
+        }
     }
 }

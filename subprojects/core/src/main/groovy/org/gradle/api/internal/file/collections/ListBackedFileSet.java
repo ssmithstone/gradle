@@ -45,6 +45,11 @@ public class ListBackedFileSet implements MinimalFileSet {
         }
     }
 
+    @Override
+    public String toString() {
+        return getDisplayName();
+    }
+
     public Set<File> getFiles() {
         return files;
     }

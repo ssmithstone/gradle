@@ -83,6 +83,26 @@ public class DirectoryFileTree implements MinimalFileTree, PatternFilterableFile
         return root;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+        if (obj == null || !obj.getClass().equals(getClass())) {
+            return false;
+        }
+        DirectoryFileTree other = (DirectoryFileTree) obj;
+        if (!root.equals(other.root)) {
+            return false;
+        }
+        return patternSet.equals(other.patternSet);
+    }
+
+    @Override
+    public int hashCode() {
+        return root.hashCode() ^ patternSet.hashCode();
+    }
+
     public Collection<DirectoryFileTree> getLocalContents() {
         return Collections.singletonList(this);
     }

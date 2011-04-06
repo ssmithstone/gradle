@@ -33,8 +33,8 @@ task largeSrc(type: GeneratorTask, description: 'Generates a single project with
 }
 
 task multi(type: GeneratorTask, description: 'Generates a multi-project build') {
-    projects = 25
-    sourceFiles = 100
+    projects = 10
+    sourceFiles = 500
 }
 
 task mixedSize(type: GeneratorTask) {

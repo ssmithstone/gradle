@@ -31,35 +31,14 @@ class IdeaPluginTest extends Specification {
     private final Project childProject = HelperUtil.createChildProject(project, "child", new File("."))
     private final IdeaPlugin ideaPlugin = new IdeaPlugin()
 
-    def "adds configurer task to root project only"() {
-        when:
-        applyPluginToProjects()
-
-        then:
-        project.ideaConfigurer instanceof IdeaConfigurer
-        childProject.tasks.findByName('ideaConfigurer') == null
-    }
-
-    def "makes all generation and clean tasks depend on configurer"() {
-        when:
-        applyPluginToProjects()
-
-        then:
-        [project.ideaWorkspace, project.cleanIdeaWorkspace,
-         project.ideaModule, project.cleanIdeaModule,
-         project.ideaProject, project.cleanIdeaProject].each {
-            assert it.dependsOn.contains(project.rootProject.ideaConfigurer)
-        }
-    }
-
     def "adds 'ideaProject' task to root project"() {
         when:
         applyPluginToProjects()
 
         then:
         assertThatCleanIdeaDependsOnDeleteTask(project, project.cleanIdeaProject)
-        IdeaProject ideaProjectTask = project.ideaProject
-        ideaProjectTask instanceof IdeaProject
+        GenerateIdeaProject ideaProjectTask = project.ideaProject
+        ideaProjectTask instanceof GenerateIdeaProject
         ideaProjectTask.outputFile == new File(project.projectDir, project.name + ".ipr")
         ideaProjectTask.subprojects == project.rootProject.allprojects
         ideaProjectTask.javaVersion == JavaVersion.VERSION_1_6.toString()
@@ -74,7 +53,7 @@ class IdeaPluginTest extends Specification {
         applyPluginToProjects()
 
         then:
-        project.ideaWorkspace instanceof IdeaWorkspace
+        project.ideaWorkspace instanceof GenerateIdeaWorkspace
         assertThatCleanIdeaDependsOnDeleteTask(project, project.cleanIdeaWorkspace)
 
         childProject.tasks.findByName('ideaWorkspace') == null
@@ -98,7 +77,7 @@ class IdeaPluginTest extends Specification {
         then:
         project.ideaProject.javaVersion == project.sourceCompatibility.toString()
 
-        IdeaModule ideaModuleTask = project.ideaModule
+        GenerateIdeaModule ideaModuleTask = project.ideaModule
         ideaModuleTask.sourceDirs == project.sourceSets.main.allSource.sourceTrees.srcDirs.flatten() as Set
         ideaModuleTask.testSourceDirs == project.sourceSets.test.allSource.sourceTrees.srcDirs.flatten() as Set
         def configurations = project.configurations
@@ -130,8 +109,8 @@ class IdeaPluginTest extends Specification {
     }
 
     private void assertThatIdeaModuleIsProperlyConfigured(Project project) {
-        IdeaModule ideaModuleTask = project.ideaModule
-        assert ideaModuleTask instanceof IdeaModule
+        GenerateIdeaModule ideaModuleTask = project.ideaModule
+        assert ideaModuleTask instanceof GenerateIdeaModule
         assert ideaModuleTask.outputFile == new File(project.projectDir, project.name + ".iml")
         assert ideaModuleTask.moduleDir == project.projectDir
         assert ideaModuleTask.sourceDirs == [] as Set

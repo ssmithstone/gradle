@@ -17,7 +17,7 @@ package org.gradle.plugins.ide.eclipse
 
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.XmlGeneratorTask
+import org.gradle.plugins.ide.api.XmlGeneratorTask
 import org.gradle.plugins.ide.eclipse.model.Classpath
 import org.gradle.plugins.ide.eclipse.model.internal.ClasspathFactory
 

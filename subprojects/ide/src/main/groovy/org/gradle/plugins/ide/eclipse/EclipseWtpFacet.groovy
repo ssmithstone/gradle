@@ -15,7 +15,7 @@
  */
 package org.gradle.plugins.ide.eclipse
 
-import org.gradle.api.tasks.XmlGeneratorTask
+import org.gradle.plugins.ide.api.XmlGeneratorTask
 import org.gradle.plugins.ide.eclipse.model.Facet
 import org.gradle.plugins.ide.eclipse.model.WtpFacet
 import org.gradle.plugins.ide.eclipse.model.internal.WtpFacetFactory

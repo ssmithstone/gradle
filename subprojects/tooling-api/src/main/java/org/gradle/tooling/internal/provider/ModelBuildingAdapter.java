@@ -52,14 +52,14 @@ public class ModelBuildingAdapter extends BuildAdapter {
     public void projectsEvaluated(Gradle gradle) {
         if (configurer != null) {
             configurer.configure((GradleInternal) gradle);
-        } else {
-            builder.buildAll((GradleInternal) gradle);
         }
     }
 
     @Override
     public void buildFinished(BuildResult result) {
-        builder.buildAll((GradleInternal) result.getGradle());
+        if (result.getFailure() == null) {
+            builder.buildAll((GradleInternal) result.getGradle());
+        }
     }
 
     public DefaultEclipseProject getProject() {

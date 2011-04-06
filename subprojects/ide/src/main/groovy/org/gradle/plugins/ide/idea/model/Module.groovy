@@ -140,8 +140,7 @@ class Module extends XmlPersistableConfigurationObject {
         }
     }
 
-    void configure(Path contentPath, Set sourceFolders, Set testSourceFolders, Set excludeFolders, Boolean inheritOutputDirs, Path outputDir, Path testOutputDir, Set dependencies,
-                  String javaVersion) {
+    protected def configure(Path contentPath, Set sourceFolders, Set testSourceFolders, Set excludeFolders, Boolean inheritOutputDirs, Path outputDir, Path testOutputDir, Set dependencies, String javaVersion) {
         this.contentPath = contentPath
         this.sourceFolders.addAll(sourceFolders)
         this.testSourceFolders.addAll(testSourceFolders)

@@ -24,9 +24,9 @@ import org.gradle.tooling.internal.protocol.ExternalDependencyVersion1;
 public interface EclipseProjectVersion3 extends HierarchicalEclipseProjectVersion1, BuildableProjectVersion1 {
     EclipseProjectVersion3 getParent();
 
-    Iterable<? extends EclipseProjectVersion3> getChildren();
+    Iterable<? extends EclipseTaskVersion1> getTasks();
 
-    Iterable<? extends EclipseSourceDirectoryVersion1> getSourceDirectories();
+    Iterable<? extends EclipseProjectVersion3> getChildren();
 
     Iterable<? extends ExternalDependencyVersion1> getClasspath();
 }

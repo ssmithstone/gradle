@@ -16,25 +16,16 @@
 
 package org.gradle.integtests.samples
 
-import org.gradle.integtests.fixtures.internal.AbstractIntegrationTest
-import org.gradle.integtests.fixtures.internal.AutoTestedSamplesUtil
+import org.gradle.integtests.fixtures.internal.AbstractAutoTestedSamplesTest
 import org.junit.Test
 
 /**
  * Author: Szczepan Faber, created at: 3/28/11
  */
-class PluginsAutoTestedSamplesTest extends AbstractIntegrationTest {
+class PluginsAutoTestedSamplesTest extends AbstractAutoTestedSamplesTest {
 
     @Test
     void runSamples() {
-        def dir = "subprojects/plugins/src/main"
-
-        def util = new AutoTestedSamplesUtil()
-        util.findSamples(dir) { file, sample ->
-            println "Found sample in $file"
-            def testFile = testFile('build.gradle')
-            testFile.text = sample
-            usingBuildFile(testFile).withTasks('tasks').run()
-        }
+        runSamplesFrom("subprojects/plugins/src/main")
     }
 }

@@ -16,7 +16,7 @@
 package org.gradle.plugins.ide.eclipse
 
 import org.gradle.api.InvalidUserDataException
-import org.gradle.api.tasks.XmlGeneratorTask
+import org.gradle.plugins.ide.api.XmlGeneratorTask
 import org.gradle.plugins.ide.eclipse.model.BuildCommand
 import org.gradle.plugins.ide.eclipse.model.Link
 import org.gradle.plugins.ide.eclipse.model.Project

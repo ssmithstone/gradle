@@ -21,10 +21,10 @@ import org.custommonkey.xmlunit.Diff
 import org.custommonkey.xmlunit.ElementNameAndAttributeQualifier
 import org.custommonkey.xmlunit.XMLAssert
 import org.gradle.integtests.fixtures.TestResources
+import org.gradle.plugins.ide.AbstractIdeIntegrationTest
 import org.gradle.util.TestFile
 import org.junit.Rule
 import org.junit.Test
-import org.gradle.plugins.ide.AbstractIdeIntegrationTest
 
 class IdeaIntegrationTest extends AbstractIdeIntegrationTest {
     @Rule
@@ -131,36 +131,23 @@ sourceSets.test.groovy.srcDirs.each { it.mkdirs() }
         assert !containsDir("src/test/resources", urls)
     }
 
+
     @Test
-    void triggersBeforeAndWhenConfigurationHooks() {
-        //this test is a bit peculiar as it has assertions inside the gradle script
-        //couldn't find a better way of asserting on before/when configured hooks
+    void triggersWithXmlConfigurationHooks() {
         runIdeaTask '''
 apply plugin: 'java'
 apply plugin: 'idea'
 
-def beforeConfiguredObjects = 0
-def whenConfiguredObjects = 0
+def hookActivated = 0
 
 ideaModule {
-    beforeConfigured { beforeConfiguredObjects++ }
-    whenConfigured { whenConfiguredObjects++ }
-}
-ideaProject {
-    beforeConfigured { beforeConfiguredObjects++ }
-    whenConfigured { whenConfiguredObjects++ }
-}
-ideaWorkspace {
-    beforeConfigured { beforeConfiguredObjects++ }
-    whenConfigured { whenConfiguredObjects++ }
+    withXml { hookActivated++ }
 }
 
 idea << {
-    assert beforeConfiguredObjects == 3 : "beforeConfigured() hooks shoold be fired for domain model objects"
-    assert whenConfiguredObjects == 3 : "whenConfigured() hooks shoold be fired for domain model objects"
+    assert hookActivated == 1 : "withXml() hook shoold be fired"
 }
 '''
-
     }
 
     private void assertHasExpectedContents(String path) {
@@ -178,14 +165,6 @@ idea << {
         } catch (AssertionFailedError e) {
             throw new AssertionFailedError("generated file '$path' does not contain the expected contents: ${e.message}.\nExpected:\n${expectedXml}\nActual:\n${file.text}").initCause(e)
         }
-    }
-
-    private runIdeaTask(buildScript) {
-        runTask("idea", buildScript)
-    }
-
-    private parseImlFile(Map options = [:], String projectName) {
-        parseFile(options, "${projectName}.iml")
     }
 
     private containsDir(path, urls) {

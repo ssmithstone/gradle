@@ -16,15 +16,14 @@
 package org.gradle.launcher;
 
 import org.gradle.BuildExceptionReporter;
-import org.gradle.api.logging.StandardOutputListener;
-import org.gradle.initialization.DefaultBuildRequestMetaData;
-import org.gradle.initialization.GradleLauncherFactory;
 import org.gradle.StartParameter;
 import org.gradle.api.internal.project.ServiceRegistry;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.initialization.DefaultBuildRequestMetaData;
 import org.gradle.initialization.DefaultCommandLineConverter;
 import org.gradle.initialization.DefaultGradleLauncherFactory;
+import org.gradle.initialization.GradleLauncherFactory;
 import org.gradle.launcher.protocol.Build;
 import org.gradle.launcher.protocol.Command;
 import org.gradle.launcher.protocol.CommandComplete;
@@ -35,10 +34,10 @@ import org.gradle.logging.StyledTextOutputFactory;
 import org.gradle.logging.internal.LoggingOutputInternal;
 import org.gradle.logging.internal.OutputEvent;
 import org.gradle.logging.internal.OutputEventListener;
+import org.gradle.logging.internal.StreamBackedStandardOutputListener;
 import org.gradle.messaging.concurrent.Stoppable;
 import org.gradle.messaging.remote.internal.Connection;
 import org.gradle.util.GradleVersion;
-import org.gradle.util.UncheckedException;
 
 import java.io.*;
 import java.util.Arrays;
@@ -72,16 +71,7 @@ public class DaemonMain implements Runnable {
         File stderrOut = new File(startParameter.getGradleUserHomeDir(), String.format("daemon/%s/daemon.err.log", GradleVersion.current().getVersion()));
         stderrOut.getParentFile().mkdirs();
         final Writer writer = new BufferedWriter(new FileWriter(stderrOut));
-        loggingServices.get(LoggingOutputInternal.class).addStandardErrorListener(new StandardOutputListener() {
-            public void onOutput(CharSequence output) {
-                try {
-                    writer.append(output);
-                    writer.flush();
-                } catch (IOException e) {
-                    throw UncheckedException.asUncheckedException(e);
-                }
-            }
-        });
+        loggingServices.get(LoggingOutputInternal.class).addStandardErrorListener(new StreamBackedStandardOutputListener(writer));
     }
 
     public void run() {
@@ -148,8 +138,11 @@ public class DaemonMain implements Runnable {
         loggingManager.setLevel(startParameter.getLogLevel());
         loggingManager.start();
 
-        Properties sysProperties = new Properties();
-        sysProperties.putAll(System.getProperties());
+        Properties originalSystemProperties = new Properties();
+        originalSystemProperties.putAll(System.getProperties());
+        Properties clientSystemProperties = new Properties();
+        clientSystemProperties.putAll(build.getSystemProperties());
+        System.setProperties(clientSystemProperties);
 
         try {
             RunBuildAction action = new RunBuildAction(startParameter, loggingServices, new DefaultBuildRequestMetaData(build.getClientMetaData(), build.getStartTime())) {
@@ -167,7 +160,7 @@ public class DaemonMain implements Runnable {
 
         loggingManager.stop();
 
-        System.setProperties(sysProperties);
+        System.setProperties(originalSystemProperties);
     }
 
     private static class ExecutionListenerImpl implements ExecutionListener {

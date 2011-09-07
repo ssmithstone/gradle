@@ -28,11 +28,9 @@ import org.gradle.api.internal.Factory;
 import org.gradle.logging.ProgressLogger;
 import org.gradle.logging.ProgressLoggerFactory;
 import org.gradle.util.WrapUtil;
+import org.jfrog.wharf.ivy.model.WharfResolverMetadata;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Hans Dockter
@@ -45,6 +43,7 @@ public class DefaultSettingsConverter implements SettingsConverter {
     private IvySettings resolveSettings;
     private ChainResolver userResolverChain;
     private DependencyResolver outerChain;
+    private final Map<String, DependencyResolver> resolvers = new HashMap<String, DependencyResolver>();
 
     public DefaultSettingsConverter(ProgressLoggerFactory progressLoggerFactory, Factory<IvySettings> settingsFactory) {
         this.progressLoggerFactory = progressLoggerFactory;
@@ -122,7 +121,22 @@ public class DefaultSettingsConverter implements SettingsConverter {
             chainResolver.getResolvers().remove(resolver);
         }
         for (DependencyResolver classpathResolver : classpathResolvers) {
-            chainResolver.add(classpathResolver);
+            resolveSettings.addResolver(classpathResolver);
+            if (classpathResolver.getRepositoryCacheManager() instanceof NoOpRepositoryCacheManager || classpathResolver.getRepositoryCacheManager() instanceof LocalFileRepositoryCacheManager) {
+                System.out.println("using raw resolver " + classpathResolver);
+                chainResolver.add(classpathResolver);
+            } else {
+                String resolverId = new WharfResolverMetadata(classpathResolver).getId();
+                DependencyResolver dependencyResolver = resolvers.get(resolverId);
+                if (dependencyResolver == null) {
+                    System.out.println("creating wrapper for " + classpathResolver);
+                    dependencyResolver = new MetadataCachingDependencyResolver(classpathResolver);
+                    resolvers.put(resolverId, dependencyResolver);
+                } else {
+                    System.out.println("reusing wrapper for " + classpathResolver);
+                }
+                chainResolver.add(dependencyResolver);
+            }
         }
     }
 

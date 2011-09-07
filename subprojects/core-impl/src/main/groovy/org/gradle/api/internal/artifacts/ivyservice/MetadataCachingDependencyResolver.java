@@ -36,10 +36,12 @@ import org.apache.ivy.plugins.resolver.util.ResolvedResource;
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.Map;
+import java.util.*;
 
 public class MetadataCachingDependencyResolver implements DependencyResolver {
     private final DependencyResolver resolver;
+    private final Map<ModuleRevisionId, ResolvedModuleRevision> dependencies = new HashMap<ModuleRevisionId, ResolvedModuleRevision>();
+    private final Map<Artifact, ArtifactDownloadReport> artifacts = new HashMap<Artifact, ArtifactDownloadReport>();
 
     public MetadataCachingDependencyResolver(DependencyResolver resolver) {
         this.resolver = resolver;
@@ -54,27 +56,73 @@ public class MetadataCachingDependencyResolver implements DependencyResolver {
     }
 
     public ResolvedModuleRevision getDependency(DependencyDescriptor dd, ResolveData data) throws ParseException {
-        return resolver.getDependency(dd, data);
+        // Ignore this resolver if the dependency has already been resolved
+        if (data.getCurrentResolvedModuleRevision() != null) {
+            return data.getCurrentResolvedModuleRevision();
+        }
+
+        System.out.format("-> %s resolve %s%n", resolver.getName(), dd);
+        System.out.format("   dep %s%n", dd.getDependencyRevisionId());
+        ResolvedModuleRevision dependency;
+        // Cached dep may be null
+        if (dependencies.containsKey(dd.getDependencyRevisionId())) {
+            dependency = dependencies.get(dd.getDependencyRevisionId());
+            System.out.format("   reusing %s%n", dependency);
+        } else {
+            dependency = resolver.getDependency(dd, data);
+            dependencies.put(dd.getDependencyRevisionId(), dependency);
+            System.out.format("   got %s%n", dependency);
+        }
+        return dependency;
     }
 
     public ResolvedResource findIvyFileRef(DependencyDescriptor dd, ResolveData data) {
-        return resolver.findIvyFileRef(dd, data);
+        throw new UnsupportedOperationException("This should not be called.");
     }
 
     public DownloadReport download(Artifact[] artifacts, DownloadOptions options) {
-        return resolver.download(artifacts, options);
+        DownloadReport report = new DownloadReport();
+        List<Artifact> missing = new ArrayList<Artifact>();
+        for (Artifact artifact : artifacts) {
+            ArtifactDownloadReport artfactReport = this.artifacts.get(artifact);
+            if (artfactReport != null) {
+                System.out.format("   reusing report for %s%n", artifact);
+                report.addArtifactReport(artfactReport);
+            } else {
+                missing.add(artifact);
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            DownloadReport actualReport = resolver.download(missing.toArray(new Artifact[missing.size()]), options);
+            for (ArtifactDownloadReport artifactReport : actualReport.getArtifactsReports()) {
+                System.out.format("    got report for %s%n", artifactReport.getArtifact());
+                this.artifacts.put(artifactReport.getArtifact(), artifactReport);
+                report.addArtifactReport(artifactReport);
+            }
+        }
+
+        return report;
     }
 
     public ArtifactDownloadReport download(ArtifactOrigin artifact, DownloadOptions options) {
-        return resolver.download(artifact, options);
+        ArtifactDownloadReport downloadReport = artifacts.get(artifact.getArtifact());
+        if (downloadReport == null) {
+            downloadReport = resolver.download(artifact, options);
+            artifacts.put(artifact.getArtifact(), downloadReport);
+            System.out.format("    got report for %s%n", artifact.getArtifact());
+        } else {
+            System.out.format("   reusing report for %s%n", artifact.getArtifact());
+        }
+        return downloadReport;
     }
 
     public boolean exists(Artifact artifact) {
-        return resolver.exists(artifact);
+        throw new UnsupportedOperationException("This should not be called.");
     }
 
     public ArtifactOrigin locate(Artifact artifact) {
-        return resolver.locate(artifact);
+        throw new UnsupportedOperationException("This should not be called.");
     }
 
     public void reportFailure() {
@@ -106,19 +154,19 @@ public class MetadataCachingDependencyResolver implements DependencyResolver {
     }
 
     public void abortPublishTransaction() throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Should not be publishing using this resolver");
     }
 
     public void publish(Artifact artifact, File src, boolean overwrite) throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Should not be publishing using this resolver");
     }
 
     public void beginPublishTransaction(ModuleRevisionId module, boolean overwrite) throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Should not be publishing using this resolver");
     }
 
     public void commitPublishTransaction() throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Should not be publishing using this resolver");
     }
 
     public Namespace getNamespace() {

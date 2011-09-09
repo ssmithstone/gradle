@@ -64,6 +64,41 @@ dependencies {
     }
 
     @Test
+    @Issue("GRADLE-1622")
+    void "classpath contains entries for dependencies that only differ by classifier"() {
+        given:
+        def baseJar = mavenRepo.module('coolGroup', 'niceArtifact', '1.0').publishArtifact()
+        def extraJar = mavenRepo.module('coolGroup', 'niceArtifact', '1.0', 'extra').publishArtifactOnly()
+        def testsJar = mavenRepo.module('coolGroup', 'niceArtifact', '1.0', 'tests').publishArtifactOnly()
+        def anotherJar = mavenRepo.module('coolGroup', 'another', '1.0').publishArtifact()
+
+        when:
+        runEclipseTask """
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+repositories {
+    mavenRepo(name: "repo", urls: "${mavenRepo.rootDir.toURI()}")
+}
+
+dependencies {
+    compile 'coolGroup:niceArtifact:1.0'
+    compile 'coolGroup:niceArtifact:1.0:extra'
+    testCompile 'coolGroup:another:1.0'
+    testCompile 'coolGroup:niceArtifact:1.0:tests'
+}
+"""
+
+        then:
+        def libraries = classpath.libs
+        assert libraries.size() == 4
+        libraries[0].assertHasJar(anotherJar)
+        libraries[1].assertHasJar(extraJar)
+        libraries[2].assertHasJar(testsJar)
+        libraries[3].assertHasJar(baseJar)
+    }
+
+    @Test
     void "substitutes path variables into library paths"() {
         //given
         mavenRepo.module('coolGroup', 'niceArtifact', '1.0').publishArtifact()

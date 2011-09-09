@@ -131,7 +131,8 @@ public class DefaultDependencyManagementServices extends DefaultServiceRegistry 
     private SettingsConverter createSettingsConverter() {
         return new DefaultSettingsConverter(
                 get(ProgressLoggerFactory.class),
-                new IvySettingsFactory(get(CacheRepository.class)));
+                new IvySettingsFactory(get(CacheRepository.class)),
+                get(StartParameter.class).getDependencyCache());
     }
 
     private class DefaultDependencyResolutionServices implements DependencyResolutionServices {

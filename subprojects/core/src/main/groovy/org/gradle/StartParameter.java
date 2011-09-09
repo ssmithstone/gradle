@@ -63,6 +63,20 @@ public class StartParameter {
         INTERNAL_EXCEPTIONS, ALWAYS, ALWAYS_FULL
     }
 
+    public enum DependencyCache {
+        IVY, REPOSITORY, ALL
+    }
+
+    private DependencyCache dependencyCache = DependencyCache.IVY;
+
+    public DependencyCache getDependencyCache() {
+        return dependencyCache;
+    }
+
+    public void setDependencyCache(DependencyCache dependencyCache) {
+        this.dependencyCache = dependencyCache;
+    }
+
     private List<String> taskNames = new ArrayList<String>();
     private Set<String> excludedTaskNames = new HashSet<String>();
     private ProjectDependenciesBuildInstruction projectDependenciesBuildInstruction

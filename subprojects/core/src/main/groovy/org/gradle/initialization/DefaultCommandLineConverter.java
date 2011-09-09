@@ -65,6 +65,7 @@ public class DefaultCommandLineConverter extends AbstractCommandLineConverter<St
     private static final String NO_OPT = "no-opt";
     private static final String EXCLUDE_TASK = "x";
     private static final String PROFILE = "profile";
+    private static final String DEPENDENCY_CACHE = "dependency-cache";
 
     private static BiMap<String, StartParameter.ShowStacktrace> showStacktraceMap = HashBiMap.create();
     private final CommandLineConverter<LoggingConfiguration> loggingConfigurationCommandLineConverter = new LoggingCommandLineConverter();
@@ -103,6 +104,7 @@ public class DefaultCommandLineConverter extends AbstractCommandLineConverter<St
         parser.option(NO_OPT).hasDescription("Ignore any task optimization.");
         parser.option(EXCLUDE_TASK, "exclude-task").hasArguments().hasDescription("Specify a task to be excluded from execution.");
         parser.option(PROFILE).hasDescription("Profiles build execution time and generates a report in the <build_dir>/reports/profile directory.");
+        parser.option(DEPENDENCY_CACHE).hasArgument().hasDescription("DELETE ME. Values: ivy, repository, all");
     }
 
     @Override
@@ -159,6 +161,9 @@ public class DefaultCommandLineConverter extends AbstractCommandLineConverter<St
             } catch (InvalidUserDataException e) {
                 throw new CommandLineArgumentException(e.getMessage());
             }
+        }
+        if (options.hasOption(DEPENDENCY_CACHE)) {
+            startParameter.setDependencyCache(StartParameter.DependencyCache.valueOf(options.option(DEPENDENCY_CACHE).getValue().toUpperCase()));
         }
 
         if (options.hasOption("project-cache-dir")) {

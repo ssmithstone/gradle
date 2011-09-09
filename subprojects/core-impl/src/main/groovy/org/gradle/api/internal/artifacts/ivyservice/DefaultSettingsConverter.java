@@ -24,6 +24,7 @@ import org.apache.ivy.plugins.repository.Repository;
 import org.apache.ivy.plugins.repository.TransferEvent;
 import org.apache.ivy.plugins.repository.TransferListener;
 import org.apache.ivy.plugins.resolver.*;
+import org.gradle.StartParameter;
 import org.gradle.api.internal.Factory;
 import org.gradle.logging.ProgressLogger;
 import org.gradle.logging.ProgressLoggerFactory;
@@ -38,6 +39,7 @@ import java.util.*;
 public class DefaultSettingsConverter implements SettingsConverter {
     private final ProgressLoggerFactory progressLoggerFactory;
     private final Factory<IvySettings> settingsFactory;
+    private final StartParameter.DependencyCache cache;
     private final TransferListener transferListener = new ProgressLoggingTransferListener();
     private IvySettings publishSettings;
     private IvySettings resolveSettings;
@@ -45,9 +47,11 @@ public class DefaultSettingsConverter implements SettingsConverter {
     private DependencyResolver outerChain;
     private final Map<String, DependencyResolver> resolvers = new HashMap<String, DependencyResolver>();
 
-    public DefaultSettingsConverter(ProgressLoggerFactory progressLoggerFactory, Factory<IvySettings> settingsFactory) {
+    public DefaultSettingsConverter(ProgressLoggerFactory progressLoggerFactory, Factory<IvySettings> settingsFactory, StartParameter.DependencyCache cache) {
         this.progressLoggerFactory = progressLoggerFactory;
         this.settingsFactory = settingsFactory;
+        this.cache = cache;
+        System.out.println("==> CACHE STYLE: " + cache);
     }
 
     private static String getLengthText(TransferEvent evt) {
@@ -122,21 +126,30 @@ public class DefaultSettingsConverter implements SettingsConverter {
         }
         for (DependencyResolver classpathResolver : classpathResolvers) {
             resolveSettings.addResolver(classpathResolver);
-            if (classpathResolver.getRepositoryCacheManager() instanceof NoOpRepositoryCacheManager || classpathResolver.getRepositoryCacheManager() instanceof LocalFileRepositoryCacheManager) {
-                System.out.println("using raw resolver " + classpathResolver);
-                chainResolver.add(classpathResolver);
-            } else {
-                String resolverId = new WharfResolverMetadata(classpathResolver).getId();
-                DependencyResolver dependencyResolver = resolvers.get(resolverId);
-                if (dependencyResolver == null) {
+            chainResolver.add(wrap(classpathResolver));
+        }
+    }
+
+    private DependencyResolver wrap(DependencyResolver classpathResolver) {
+        if (cache == StartParameter.DependencyCache.IVY || classpathResolver.getRepositoryCacheManager() instanceof NoOpRepositoryCacheManager || classpathResolver.getRepositoryCacheManager() instanceof LocalFileRepositoryCacheManager) {
+            System.out.println("using raw resolver " + classpathResolver);
+            return classpathResolver;
+        } else {
+            String resolverId = new WharfResolverMetadata(classpathResolver).getId();
+            DependencyResolver dependencyResolver = resolvers.get(resolverId);
+            if (dependencyResolver == null) {
+                if (cache == StartParameter.DependencyCache.ALL) {
                     System.out.println("creating wrapper for " + classpathResolver);
                     dependencyResolver = new MetadataCachingDependencyResolver(classpathResolver);
-                    resolvers.put(resolverId, dependencyResolver);
                 } else {
-                    System.out.println("reusing wrapper for " + classpathResolver);
+                    System.out.println("using raw resolver " + classpathResolver);
+                    dependencyResolver = classpathResolver;
                 }
-                chainResolver.add(dependencyResolver);
+                resolvers.put(resolverId, dependencyResolver);
+            } else {
+                System.out.println("reusing repo for " + classpathResolver);
             }
+            return dependencyResolver;
         }
     }
 

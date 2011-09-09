@@ -88,6 +88,7 @@ public class DefaultSettingsConverter implements SettingsConverter {
             DependencyResolver clientModuleResolver = createClientModuleResolver(clientModuleRegistry, userResolverChain);
             outerChain = createOuterChain(WrapUtil.toLinkedSet(clientModuleResolver, userResolverChain));
             initializeResolvers(resolveSettings, WrapUtil.toList(userResolverChain, clientModuleResolver, outerChain));
+            resolveSettings.addResolver(outerChain);
         }
         replaceResolvers(dependencyResolvers, userResolverChain);
         initializeResolvers(resolveSettings, dependencyResolvers);
@@ -125,14 +126,15 @@ public class DefaultSettingsConverter implements SettingsConverter {
             chainResolver.getResolvers().remove(resolver);
         }
         for (DependencyResolver classpathResolver : classpathResolvers) {
-            resolveSettings.addResolver(classpathResolver);
-            chainResolver.add(wrap(classpathResolver));
+            chainResolver.add(wrap(classpathResolver, resolveSettings));
         }
     }
 
-    private DependencyResolver wrap(DependencyResolver classpathResolver) {
+    private DependencyResolver wrap(DependencyResolver classpathResolver, IvySettings resolveSettings) {
+        classpathResolver.setSettings(resolveSettings);
         if (cache == StartParameter.DependencyCache.IVY || classpathResolver.getRepositoryCacheManager() instanceof NoOpRepositoryCacheManager || classpathResolver.getRepositoryCacheManager() instanceof LocalFileRepositoryCacheManager) {
             System.out.println("using raw resolver " + classpathResolver);
+            resolveSettings.addResolver(classpathResolver);
             return classpathResolver;
         } else {
             String resolverId = new WharfResolverMetadata(classpathResolver).getId();
@@ -149,13 +151,18 @@ public class DefaultSettingsConverter implements SettingsConverter {
             } else {
                 System.out.println("reusing repo for " + classpathResolver);
             }
+            if (dependencyResolver instanceof MetadataCachingDependencyResolver) {
+                MetadataCachingDependencyResolver resolver = (MetadataCachingDependencyResolver) dependencyResolver;
+                resolveSettings.addResolver(resolver.getResolver());
+            } else {
+                resolveSettings.addResolver(dependencyResolver);
+            }
             return dependencyResolver;
         }
     }
 
     private void initializeResolvers(IvySettings ivySettings, List<DependencyResolver> allResolvers) {
         for (DependencyResolver dependencyResolver : allResolvers) {
-            ivySettings.addResolver(dependencyResolver);
             RepositoryCacheManager cacheManager = dependencyResolver.getRepositoryCacheManager();
             // Ensure that each resolver is sharing the same cache instance (ignoring caches which don't actually cache anything)
             if (!(cacheManager instanceof NoOpRepositoryCacheManager) && !(cacheManager instanceof LocalFileRepositoryCacheManager)) {

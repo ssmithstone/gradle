@@ -47,6 +47,10 @@ public class MetadataCachingDependencyResolver implements DependencyResolver {
         this.resolver = resolver;
     }
 
+    public DependencyResolver getResolver() {
+        return resolver;
+    }
+
     public String getName() {
         return resolver.getName();
     }

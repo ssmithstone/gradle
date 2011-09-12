@@ -15,9 +15,11 @@
  */
 
 dependencies {
-    groovy libraries.groovy_depends
-    compile project(':core'), project(":plugins"), project(":ide")
-    testRuntime project(":maven")
+    groovy libraries.groovy
+    compile project(':core')
+    compile project(":plugins")
+    compile project(":ide")
+    integTestRuntime project(":maven")
 }
 
 useTestFixtures()

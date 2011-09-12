@@ -86,7 +86,7 @@ subprojects {
 }
 project(':a') {
     repositories {
-        mavenRepo urls: '${repo().rootDir.toURI()}'
+        maven { url '${repo().rootDir.toURI()}' }
     }
     dependencies {
         compile 'org.gradle.test:external1:1.0'
@@ -122,7 +122,7 @@ subprojects {
 }
 project(':a') {
     repositories {
-        mavenRepo urls: '${repo1.rootDir.toURI()}'
+        maven { url '${repo1.rootDir.toURI()}' }
     }
     dependencies {
         compile 'org.gradle.test:external1:1.0'
@@ -130,7 +130,7 @@ project(':a') {
 }
 project(':b') {
     repositories {
-        mavenRepo urls: '${repo2.rootDir.toURI()}'
+        maven { url '${repo2.rootDir.toURI()}' }
     }
     dependencies {
         compile 'org.gradle.test:external1:1.0'
@@ -154,7 +154,7 @@ project(':b') {
         testFile('build.gradle') << """
 subprojects {
     repositories {
-        mavenRepo urls: '${repo.rootDir.toURI()}'
+        maven { url '${repo.rootDir.toURI()}' }
     }
     configurations {
         compile
@@ -193,7 +193,7 @@ project(':b') {
 
         testFile('build.gradle') << """
 repositories {
-    mavenRepo urls: '${repo.rootDir.toURI()}'
+    maven { url '${repo.rootDir.toURI()}' }
 }
 configurations {
     base
@@ -247,7 +247,7 @@ task test << {
 
         testFile('build.gradle') << """
 repositories {
-    mavenRepo urls: '${repo.rootDir.toURI()}'
+    maven { url '${repo.rootDir.toURI()}' }
 }
 configurations {
     base
@@ -288,7 +288,7 @@ task test << {
 
         testFile('build.gradle') << """
 repositories {
-    mavenRepo urls: '${repo.rootDir.toURI()}'
+    maven { url '${repo.rootDir.toURI()}' }
 }
 configurations {
     base
@@ -326,21 +326,20 @@ task test << {
 
         testFile('build.gradle') << """
 repositories {
-    mavenRepo urls: '${repo.rootDir.toURI()}'
+    maven { url '${repo.rootDir.toURI()}' }
 }
 configurations {
     reference
-    base
-    extended.extendsFrom base
-    extendedWithClassifier.extendsFrom base
+    excluded
+    extendedExcluded.extendsFrom excluded
+    excludedWithClassifier
 }
 dependencies {
     reference 'org.gradle.test:external1:1.0'
-    base 'org.gradle.test:external1:1.0', {
-        exclude module: 'one'
-    }
-    extended 'org.gradle.test:two:1.0'
-    extendedWithClassifier 'org.gradle.test:external1:1.0:classifier'
+    excluded 'org.gradle.test:external1:1.0', { exclude module: 'one' }
+    extendedExcluded 'org.gradle.test:two:1.0'
+    excludedWithClassifier 'org.gradle.test:external1:1.0', { exclude module: 'one' }
+    excludedWithClassifier 'org.gradle.test:external1:1.0:classifier', { exclude module: 'one' }
 }
 
 def checkDeps(config, expectedDependencies) {
@@ -349,9 +348,49 @@ def checkDeps(config, expectedDependencies) {
 
 task test << {
     checkDeps configurations.reference, ['external1-1.0.jar', 'one-1.0.jar']
-    checkDeps configurations.base, ['external1-1.0.jar']
-    checkDeps configurations.extended, ['external1-1.0.jar', 'two-1.0.jar']
-    checkDeps configurations.extendedWithClassifier, ['external1-1.0.jar', 'external1-1.0-classifier.jar']
+    checkDeps configurations.excluded, ['external1-1.0.jar']
+    checkDeps configurations.extendedExcluded, ['external1-1.0.jar', 'two-1.0.jar']
+    checkDeps configurations.excludedWithClassifier, ['external1-1.0.jar', 'external1-1.0-classifier.jar']
+}
+"""
+        inTestDirectory().withTasks('test').run()
+    }
+
+    @Test
+    public void nonTransitiveDependenciesAreNotRetrieved() {
+        def repo = repo()
+        repo.module('org.gradle.test', 'one', '1.0').publishArtifact()
+        repo.module('org.gradle.test', 'two', '1.0').publishArtifact()
+        repo.module('org.gradle.test', 'external1', '1.0').dependsOn('org.gradle.test', 'one', '1.0').publishArtifact()
+        repo.module('org.gradle.test', 'external1', '1.0', 'classifier').publishArtifactOnly()
+
+        testFile('build.gradle') << """
+repositories {
+    mavenRepo urls: '${repo.rootDir.toURI()}'
+}
+configurations {
+    transitive
+    nonTransitive
+    extendedNonTransitive.extendsFrom nonTransitive
+    mergedNonTransitive
+}
+dependencies {
+    transitive 'org.gradle.test:external1:1.0'
+    nonTransitive 'org.gradle.test:external1:1.0', { transitive = false }
+    extendedNonTransitive 'org.gradle.test:two:1.0'
+    mergedNonTransitive 'org.gradle.test:external1:1.0', {transitive = false }
+    mergedNonTransitive 'org.gradle.test:external1:1.0:classifier', { transitive = false }
+}
+
+def checkDeps(config, expectedDependencies) {
+    assert config.collect({ it.name }) as Set == expectedDependencies as Set
+}
+
+task test << {
+    checkDeps configurations.transitive, ['external1-1.0.jar', 'one-1.0.jar']
+    checkDeps configurations.nonTransitive, ['external1-1.0.jar']
+    checkDeps configurations.extendedNonTransitive, ['external1-1.0.jar', 'two-1.0.jar']
+    checkDeps configurations.mergedNonTransitive, ['external1-1.0.jar', 'external1-1.0-classifier.jar']
 }
 """
         inTestDirectory().withTasks('test').run()
@@ -368,7 +407,7 @@ task test << {
 
         testFile('build.gradle') << """
 repositories {
-    mavenRepo urls: '${repo.rootDir.toURI()}'
+    maven { url '${repo.rootDir.toURI()}' }
 }
 configurations {
     a
@@ -500,7 +539,7 @@ task test << {
         testFile('build.gradle') << '''
 allprojects {
     apply plugin: 'java'
-    repositories { mavenRepo urls: rootProject.uri('repo') }
+    repositories { maven { url rootProject.uri('repo') } }
 }
 project(':a') {
     dependencies {

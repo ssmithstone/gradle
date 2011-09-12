@@ -23,16 +23,18 @@ import org.apache.ivy.core.module.id.ModuleRevisionId;
 import org.apache.ivy.plugins.matcher.ExactPatternMatcher;
 import org.apache.ivy.plugins.matcher.PatternMatcher;
 import org.gradle.api.InvalidUserDataException;
-import org.gradle.api.artifacts.*;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.*;
 import org.gradle.api.artifacts.ExcludeRule;
 import org.gradle.api.internal.artifacts.ivyservice.moduleconverter.ExcludeRuleConverter;
+import org.gradle.util.GUtil;
+import org.gradle.util.UncheckedException;
 import org.gradle.util.WrapUtil;
 
+import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author Hans Dockter
@@ -71,7 +73,7 @@ public abstract class AbstractDependencyDescriptorFactoryInternal implements Dep
     }
 
     protected abstract DefaultDependencyDescriptor createDependencyDescriptor(ModuleDependency dependency, String configuration,
-                                                            ModuleDescriptor moduleDescriptor, ModuleRevisionId moduleRevisionId);
+                                                                              ModuleDescriptor moduleDescriptor, ModuleRevisionId moduleRevisionId);
 
     private DefaultDependencyDescriptor findMatchingDescriptorForSameConfiguration(DefaultModuleDescriptor moduleDescriptor, DependencyDescriptor targetDescriptor) {
         for (DependencyDescriptor dependencyDescriptor : moduleDescriptor.getDependencies()) {
@@ -83,21 +85,75 @@ public abstract class AbstractDependencyDescriptorFactoryInternal implements Dep
         return null;
     }
 
-    private void mergeDescriptors(String masterConfiguration, DefaultDependencyDescriptor matchingDependencyDescriptor, DependencyDescriptor newDescriptor, ModuleDependency newDependency) {
-        // TODO Merge transitive, excludeRules and force flags
+    private void mergeDescriptors(String masterConfiguration, DefaultDependencyDescriptor originalDescriptor, DependencyDescriptor newDescriptor, ModuleDependency newDependency) {
+        // Force ivy to act as though both dependencies are fetched independently
+
         // Merge dependency configurations
         if (newDependency.getConfiguration() != null) {
-            matchingDependencyDescriptor.addDependencyConfiguration(masterConfiguration, newDependency.getConfiguration());
+            originalDescriptor.addDependencyConfiguration(masterConfiguration, newDependency.getConfiguration());
         }
 
         // Copy across all defined artifacts
         for (DependencyArtifactDescriptor artifactDescriptor : newDescriptor.getAllDependencyArtifacts()) {
-            matchingDependencyDescriptor.addDependencyArtifact(masterConfiguration, artifactDescriptor);
+            originalDescriptor.addDependencyArtifact(masterConfiguration, artifactDescriptor);
         }
 
         // Copy across inclusion of default artifacts
         if (newDescriptor.getIncludeRules(masterConfiguration).length != 0) {
-            includeDefaultArtifacts(masterConfiguration, matchingDependencyDescriptor);
+            includeDefaultArtifacts(masterConfiguration, originalDescriptor);
+        }
+
+        // OR Force, Transitive and Changing flags
+        mergeFlagIntoOriginal(originalDescriptor, newDescriptor, "isForce");
+        mergeFlagIntoOriginal(originalDescriptor, newDescriptor, "isTransitive");
+        mergeFlagIntoOriginal(originalDescriptor, newDescriptor, "isChanging");
+
+        // Create intersection of exclude rules
+        mergeExcludeRules(masterConfiguration, originalDescriptor, newDescriptor);
+    }
+
+    private void mergeFlagIntoOriginal(DefaultDependencyDescriptor originalDescriptor, DependencyDescriptor newDescriptor, String fieldName) {
+        try {
+            Field field = DefaultDependencyDescriptor.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+
+            Boolean originalValue = (Boolean) field.get(originalDescriptor);
+            Boolean mergeValue = (Boolean) field.get(newDescriptor);
+            boolean newValue = originalValue || mergeValue;
+            if (originalValue != newValue) {
+                field.set(originalDescriptor, newValue);
+            }
+        } catch (NoSuchFieldException e) {
+            throw UncheckedException.asUncheckedException(e);
+        } catch (IllegalAccessException e) {
+            throw UncheckedException.asUncheckedException(e);
+        }
+    }
+
+    private void mergeExcludeRules(String configuration, DefaultDependencyDescriptor originalDescriptor, DependencyDescriptor newDescriptor) {
+        try {
+            Field field = DefaultDependencyDescriptor.class.getDeclaredField("excludeRules");
+            field.setAccessible(true);
+
+            Map rules = GUtil.elvis((Map) field.get(originalDescriptor), new LinkedHashMap());
+            Map mergeRules = GUtil.elvis((Map) field.get(newDescriptor), new LinkedHashMap());
+
+            if (rules.get(configuration) == null) {
+                // We don't exclude anything in the original, so no need to merge
+                return;
+            }
+
+            if (mergeRules.get(configuration) == null) {
+                rules.remove(configuration);
+                field.set(originalDescriptor, rules);
+            } else {
+                ((Collection) rules.get(configuration)).retainAll((Collection) mergeRules.get(configuration));
+                field.set(originalDescriptor, rules);
+            }
+        } catch (NoSuchFieldException e) {
+            throw UncheckedException.asUncheckedException(e);
+        } catch (IllegalAccessException e) {
+            throw UncheckedException.asUncheckedException(e);
         }
     }
 
@@ -113,7 +169,7 @@ public abstract class AbstractDependencyDescriptorFactoryInternal implements Dep
     }
 
     protected void addExcludesArtifactsAndDependencies(String configuration, ModuleDependency dependency,
-                                                     DefaultDependencyDescriptor dependencyDescriptor) {
+                                                       DefaultDependencyDescriptor dependencyDescriptor) {
         addArtifacts(configuration, dependency.getArtifacts(), dependencyDescriptor);
         addExcludes(configuration, dependency.getExcludeRules(), dependencyDescriptor);
         addDependencyConfiguration(configuration, dependency, dependencyDescriptor);

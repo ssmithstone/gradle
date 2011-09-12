@@ -15,10 +15,7 @@
  */
 package org.gradle.api.internal.artifacts;
 
-import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.PublishException;
-import org.gradle.api.artifacts.ResolveException;
-import org.gradle.api.artifacts.ResolvedConfiguration;
 import org.gradle.api.internal.artifacts.configurations.ConfigurationInternal;
 
 import java.io.File;
@@ -26,8 +23,6 @@ import java.io.File;
 /**
  * @author Hans Dockter
  */
-public interface IvyService {
-    ResolvedConfiguration resolve(ConfigurationInternal configuration) throws ResolveException;
-
-    void publish(Configuration configuration, File descriptorDestination) throws PublishException;
+public interface IvyService extends ArtifactDependencyResolver {
+    void publish(ConfigurationInternal configuration, File descriptorDestination) throws PublishException;
 }

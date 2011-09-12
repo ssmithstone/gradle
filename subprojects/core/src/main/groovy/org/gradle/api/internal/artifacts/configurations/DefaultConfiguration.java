@@ -22,10 +22,7 @@ import org.gradle.api.artifacts.*;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.CompositeDomainObjectSet;
 import org.gradle.api.internal.DefaultDomainObjectSet;
-import org.gradle.api.internal.artifacts.DefaultPublishArtifactSet;
-import org.gradle.api.internal.artifacts.DefaultDependencySet;
-import org.gradle.api.internal.artifacts.DefaultExcludeRule;
-import org.gradle.api.internal.artifacts.IvyService;
+import org.gradle.api.internal.artifacts.*;
 import org.gradle.api.internal.file.AbstractFileCollection;
 import org.gradle.api.internal.tasks.AbstractTaskDependency;
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext;
@@ -51,8 +48,9 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     private Set<Configuration> extendsFrom = new LinkedHashSet<Configuration>();
     private String description;
     private ConfigurationsProvider configurationsProvider;
-    private final IvyService ivyService;
+    private final ArtifactDependencyResolver dependencyResolver;
     private final ListenerManager listenerManager;
+    private final DependencyMetaDataProvider metaDataProvider;
     private final DefaultDependencySet dependencies;
     private final CompositeDomainObjectSet<Dependency> inheritedDependencies;
     private final DefaultDependencySet allDependencies;
@@ -69,12 +67,13 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     private ResolvedConfiguration cachedResolvedConfiguration;
 
     public DefaultConfiguration(String path, String name, ConfigurationsProvider configurationsProvider,
-                                IvyService ivyService, ListenerManager listenerManager) {
+                                ArtifactDependencyResolver dependencyResolver, ListenerManager listenerManager, DependencyMetaDataProvider metaDataProvider) {
         this.path = path;
         this.name = name;
         this.configurationsProvider = configurationsProvider;
-        this.ivyService = ivyService;
+        this.dependencyResolver = dependencyResolver;
         this.listenerManager = listenerManager;
+        this.metaDataProvider = metaDataProvider;
         resolutionListenerBroadcast = listenerManager.createAnonymousBroadcaster(DependencyResolutionListener.class);
 
         DefaultDomainObjectSet<Dependency> ownDependencies = new DefaultDomainObjectSet<Dependency>(Dependency.class);
@@ -99,6 +98,10 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
         synchronized (lock) {
             return state;
         }
+    }
+
+    public Module getModule() {
+        return metaDataProvider.getModule();
     }
 
     public boolean isVisible() {
@@ -218,7 +221,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     public ResolvedConfiguration getResolvedConfiguration() {
         synchronized (lock) {
             if (state == State.UNRESOLVED) {
-                cachedResolvedConfiguration = ivyService.resolve(this);
+                cachedResolvedConfiguration = dependencyResolver.resolve(this);
                 if (cachedResolvedConfiguration.hasError()) {
                     state = State.RESOLVED_WITH_FAILURES;
                 } else {
@@ -383,7 +386,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     private DefaultConfiguration createCopy(Set<Dependency> dependencies) {
         DetachedConfigurationsProvider configurationsProvider = new DetachedConfigurationsProvider();
         DefaultConfiguration copiedConfiguration = new DefaultConfiguration(path + "Copy", name + "Copy",
-                configurationsProvider, ivyService, listenerManager);
+                configurationsProvider, dependencyResolver, listenerManager, metaDataProvider);
         configurationsProvider.setTheOnlyConfiguration(copiedConfiguration);
         // state, cachedResolvedConfiguration, and extendsFrom intentionally not copied - must re-resolve copy
         // copying extendsFrom could mess up dependencies when copy was re-resolved

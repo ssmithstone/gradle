@@ -18,9 +18,11 @@
     Provides generally useful test utilities, used for unit and integration testing.
 */
 dependencies {
-    groovy libraries.groovy_depends
+    groovy libraries.groovy
 
     compile project(":core")
 
-    compile libraries.junit, libraries.jmock, libraries.spock
+    compile libraries.junit
+    compile libraries.jmock
+    compile libraries.spock
 }

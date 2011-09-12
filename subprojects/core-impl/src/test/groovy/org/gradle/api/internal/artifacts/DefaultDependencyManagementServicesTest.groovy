@@ -16,7 +16,10 @@
 package org.gradle.api.internal.artifacts
 
 import org.gradle.StartParameter
-import org.gradle.api.artifacts.maven.MavenFactory
+import org.gradle.api.internal.ClassPathRegistry
+import org.gradle.api.internal.DomainObjectContext
+import org.gradle.api.internal.Factory
+import org.gradle.api.internal.Instantiator
 import org.gradle.api.internal.artifacts.configurations.ConfigurationContainerInternal
 import org.gradle.api.internal.artifacts.configurations.DefaultConfigurationContainer
 import org.gradle.api.internal.artifacts.configurations.DependencyMetaDataProvider
@@ -29,7 +32,6 @@ import org.gradle.listener.ListenerManager
 import org.gradle.logging.LoggingManagerInternal
 import org.gradle.logging.ProgressLoggerFactory
 import spock.lang.Specification
-import org.gradle.api.internal.*
 
 class DefaultDependencyManagementServicesTest extends Specification {
     final ServiceRegistry parent = Mock()
@@ -38,7 +40,7 @@ class DefaultDependencyManagementServicesTest extends Specification {
     final ProjectFinder projectFinder = Mock()
     final Instantiator instantiator = Mock()
     final DomainObjectContext domainObjectContext = Mock()
-    final TestRepositoryHandler repositoryHandler = Mock()
+    final DefaultRepositoryHandler repositoryHandler = Mock()
     final ConfigurationContainerInternal configurationContainer = Mock()
     final StartParameter startParameter = Mock()
     final ListenerManager listenerManager = Mock()
@@ -56,17 +58,12 @@ class DefaultDependencyManagementServicesTest extends Specification {
         _ * parent.get(ListenerManager) >> listenerManager
     }
 
-    def "provides a MavenFactory"() {
-        expect:
-        services.get(MavenFactory.class) != null
-    }
-
     def "can create dependency resolution services"() {
         given:
         _ * parent.get(Instantiator.class) >> instantiator
         _ * parent.get(StartParameter.class) >> startParameter
-        1 * instantiator.newInstance(DefaultRepositoryHandler.class, _, _, _) >> repositoryHandler
-        1 * instantiator.newInstance(DefaultConfigurationContainer.class, !null, instantiator, domainObjectContext, listenerManager) >> configurationContainer
+        1 * instantiator.newInstance(DefaultRepositoryHandler.class, _, _) >> repositoryHandler
+        1 * instantiator.newInstance(DefaultConfigurationContainer.class, !null, instantiator, domainObjectContext, listenerManager, dependencyMetaDataProvider) >> configurationContainer
 
         when:
         def resolutionServices = services.create(fileResolver, dependencyMetaDataProvider, projectFinder, domainObjectContext)
@@ -78,14 +75,13 @@ class DefaultDependencyManagementServicesTest extends Specification {
         resolutionServices.publishServicesFactory != null
     }
 
-    def "publish ResolverHandler shares ConventionMapping and ConfigurationContainer with resolve ResolverHandler"() {
-        TestRepositoryHandler publishRepositoryHandler = Mock()
+    def "publish services provide a repository handler"() {
+        DefaultRepositoryHandler publishRepositoryHandler = Mock()
 
         given:
         _ * parent.get(StartParameter.class) >> startParameter
         _ * parent.get(Instantiator.class) >> instantiator
-        2 * instantiator.newInstance(DefaultRepositoryHandler.class, _, _, _) >>> [repositoryHandler, publishRepositoryHandler]
-        1 * instantiator.newInstance(DefaultConfigurationContainer.class, !null, instantiator, domainObjectContext, listenerManager) >> configurationContainer
+        _ * instantiator.newInstance(DefaultRepositoryHandler.class, _, _) >> publishRepositoryHandler
 
         when:
         def resolutionServices = services.create(fileResolver, dependencyMetaDataProvider, projectFinder, domainObjectContext)
@@ -93,18 +89,12 @@ class DefaultDependencyManagementServicesTest extends Specification {
 
         then:
         publishResolverHandler == publishRepositoryHandler
-        1 * publishRepositoryHandler.setConfigurationContainer(configurationContainer)
-        1 * publishRepositoryHandler.setConventionMapping({!null})
     }
 
     def "publish services provide an IvyService"() {
-        TestRepositoryHandler publishRepositoryHandler = Mock()
-
         given:
         _ * parent.get(StartParameter.class) >> startParameter
         _ * parent.get(Instantiator.class) >> instantiator
-        2 * instantiator.newInstance(DefaultRepositoryHandler.class, _, _, _) >>> [repositoryHandler, publishRepositoryHandler]
-        1 * instantiator.newInstance(DefaultConfigurationContainer.class, !null, instantiator, domainObjectContext, listenerManager) >> configurationContainer
 
         when:
         def resolutionServices = services.create(fileResolver, dependencyMetaDataProvider, projectFinder, domainObjectContext)
@@ -112,11 +102,5 @@ class DefaultDependencyManagementServicesTest extends Specification {
 
         then:
         ivyService != null
-    }
-}
-
-abstract class TestRepositoryHandler extends DefaultRepositoryHandler implements IConventionAware {
-    TestRepositoryHandler(ResolverFactory resolverFactory, FileResolver fileResolver, Instantiator instantiator) {
-        super(resolverFactory, fileResolver, instantiator)
     }
 }

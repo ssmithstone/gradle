@@ -284,7 +284,16 @@ public class DefaultFileLockManager implements FileLockManager {
 
         private java.nio.channels.FileLock lockRegion(FileLockManager.LockMode lockMode, long timeout, long start, long size) throws IOException, InterruptedException {
             do {
-                java.nio.channels.FileLock fileLock = lockFileAccess.getChannel().tryLock(start, size, lockMode == LockMode.Shared);
+                java.nio.channels.FileLock fileLock;
+                try {
+                    fileLock = lockFileAccess.getChannel().tryLock(start, size, lockMode == LockMode.Shared);
+                } catch (java.nio.channels.OverlappingFileLockException e) {
+                    //(SF) this means multiple threads in this process are trying to lock
+                    //what do we do now?
+                    //I'm applying the same strategy as for the multiple processes chasing the lock
+                    //that is I'm waiting until the other thread has released the resource
+                    fileLock = null;
+                }
                 if (fileLock != null) {
                     return fileLock;
                 }

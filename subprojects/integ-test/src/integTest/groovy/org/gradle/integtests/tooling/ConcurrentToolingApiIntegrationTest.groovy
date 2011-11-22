@@ -20,7 +20,6 @@ import org.gradle.integtests.fixtures.GradleDistribution
 import org.gradle.integtests.tooling.fixture.ToolingApi
 import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.util.ConcurrentSpecification
-import spock.lang.Ignore
 import spock.lang.Issue
 
 class ConcurrentToolingApiIntegrationTest extends ConcurrentSpecification {
@@ -28,18 +27,20 @@ class ConcurrentToolingApiIntegrationTest extends ConcurrentSpecification {
     def dist = new GradleDistribution()
     def toolingApi = new ToolingApi(dist)
 
-    @Ignore
+//    @Ignore
     @Issue("GRADLE-1933")
     def "handles concurrent scenario"() {
+        //temporary hack to only run in embedded mode. Useful for local testin
+        toolingApi.isEmbedded = false
+
         dist.file('build.gradle')  << """
 apply plugin: 'java'
         """
 
         when:
-        shortTimeout = 20000
+        shortTimeout = 50000
 
-        executor.execute(thread())
-        executor.execute(thread())
+        5.times { executor.execute(thread()) }
 
         then:
         //fails most of the time

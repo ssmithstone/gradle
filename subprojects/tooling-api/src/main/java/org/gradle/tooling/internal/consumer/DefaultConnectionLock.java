@@ -13,29 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.gradle.tooling.internal.consumer;
 
-import java.io.File;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-public interface ConnectionParameters {
-    File getProjectDir();
+/**
+ * by Szczepan Faber, created at: 11/22/11
+ */
+public class DefaultConnectionLock implements ConnectionLock {
 
-    /**
-     * Specifies whether to search for root project, or null to use default.
-     */
-    Boolean isSearchUpwards();
+    private final Lock lock = new ReentrantLock();
 
-    /**
-     * Returns the Gradle user home directory, or null to use default.
-     */
-    File getGradleUserHomeDir();
+    public void lock() {
+        lock.lock();
+    }
 
-    Boolean isEmbedded();
-
-    Integer getDaemonMaxIdleTimeValue();
-
-    TimeUnit getDaemonMaxIdleTimeUnits();
-
-    ConnectionLock getConnectionLock();
+    public void unlock() {
+        lock.unlock();
+    }
 }

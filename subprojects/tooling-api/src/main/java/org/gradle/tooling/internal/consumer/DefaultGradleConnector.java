@@ -15,9 +15,9 @@
  */
 package org.gradle.tooling.internal.consumer;
 
-import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.GradleConnectionException;
 import org.gradle.tooling.GradleConnector;
+import org.gradle.tooling.ProjectConnection;
 import org.gradle.util.GradleVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 
 public class DefaultGradleConnector extends GradleConnector {
     private static final Logger LOGGER = LoggerFactory.getLogger(GradleConnector.class);
+    private static final ConnectionLock LOCK = new DefaultConnectionLock();
+
     private final ConnectionFactory connectionFactory;
     private final DistributionFactory distributionFactory;
     private File projectDir;
@@ -103,7 +105,7 @@ public class DefaultGradleConnector extends GradleConnector {
         if (distribution == null) {
             distribution = distributionFactory.getDefaultDistribution(projectDir);
         }
-        return connectionFactory.create(distribution, new DefaultConnectionParameters(projectDir, gradleUserHomeDir, searchUpwards, embedded, daemonMaxIdleTimeValue, daemonMaxIdleTimeUnits));
+        return connectionFactory.create(distribution, new DefaultConnectionParameters(
+            projectDir, gradleUserHomeDir, searchUpwards, embedded, daemonMaxIdleTimeValue, daemonMaxIdleTimeUnits, LOCK));
     }
-
 }

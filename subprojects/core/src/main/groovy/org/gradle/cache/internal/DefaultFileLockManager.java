@@ -35,6 +35,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
  *     <li>State region: 1 byte version field, 1 byte clean flag.</li>
  *     <li>Owner information region: 1 byte version field, utf-8 encoded owner process id, utf-8 encoded owner operation display name.</li>
  * </ul>
+ *
+ * It is not thread-safe!
  */
 public class DefaultFileLockManager implements FileLockManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultFileLockManager.class);
@@ -292,7 +294,7 @@ public class DefaultFileLockManager implements FileLockManager {
                     //what do we do now?
                     //I'm applying the same strategy as for the multiple processes chasing the lock
                     //that is I'm waiting until the other thread has released the resource
-                    fileLock = null;
+                    throw new RuntimeException("DefaultFileLockManager is not thread-safe! Looks like multiple threads are trying to acquire a lock.", e);
                 }
                 if (fileLock != null) {
                     return fileLock;

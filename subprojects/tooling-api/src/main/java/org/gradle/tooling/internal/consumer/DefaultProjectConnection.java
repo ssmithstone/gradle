@@ -53,7 +53,12 @@ class DefaultProjectConnection implements ProjectConnection {
     }
 
     public <T extends Element> T getModel(Class<T> viewType) {
-        return model(viewType).get();
+        parameters.getConnectionLock().lock();
+        try {
+            return model(viewType).get();
+        } finally {
+            parameters.getConnectionLock().unlock();
+        }
     }
 
     public <T extends Element> void getModel(final Class<T> viewType, final ResultHandler<? super T> handler) {

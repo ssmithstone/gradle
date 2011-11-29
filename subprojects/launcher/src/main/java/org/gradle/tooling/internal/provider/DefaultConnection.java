@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import org.gradle.GradleLauncher;
 import org.gradle.StartParameter;
+import org.gradle.api.internal.Factory;
 import org.gradle.api.internal.project.ServiceRegistry;
 import org.gradle.initialization.DefaultGradleLauncherFactory;
 import org.gradle.initialization.GradleLauncherAction;
@@ -27,6 +28,7 @@ import org.gradle.initialization.GradleLauncherFactory;
 import org.gradle.launcher.daemon.client.DaemonClient;
 import org.gradle.launcher.daemon.client.DaemonClientServices;
 import org.gradle.launcher.daemon.registry.DaemonDir;
+import org.gradle.launcher.daemon.registry.DaemonRegistryServices;
 import org.gradle.launcher.daemon.server.DaemonIdleTimeout;
 import org.gradle.launcher.exec.GradleLauncherActionExecuter;
 import org.gradle.logging.LoggingManagerInternal;
@@ -84,16 +86,23 @@ public class DefaultConnection implements ConnectionVersion4 {
 
     private GradleLauncherActionExecuter<BuildOperationParametersVersion1> createExecuter(BuildOperationParametersVersion1 operationParameters) {
         GradleLauncherActionExecuter<BuildOperationParametersVersion1> executer;
+        Factory<LoggingManagerInternal> loggingManagerFactory;
         if (Boolean.TRUE.equals(operationParameters.isEmbedded())) {
             executer = new EmbeddedGradleLauncherActionExecuter(gradleLauncherFactory);
+            //for embedded daemon (internal use only), we will use the same logging services that were used to construct gradleLauncherFactory:
+            loggingManagerFactory = loggingServices.getFactory(LoggingManagerInternal.class);
         } else {
             File gradleUserHomeDir = GUtil.elvis(operationParameters.getGradleUserHomeDir(), StartParameter.DEFAULT_GRADLE_USER_HOME);
             File daemonBaseDir = DaemonDir.calculateDirectoryViaPropertiesOrUseDefaultInGradleUserHome(System.getProperties(), gradleUserHomeDir);
-            DaemonClientServices clientServices = new DaemonClientServices(loggingServices, daemonBaseDir, getDaemonOpts(), getIdleTimeout(operationParameters));
+            DaemonRegistryServices registryServices = new DaemonRegistryServices(daemonBaseDir);
+            //using 'fresh' logging services registry per operation to avoid concurrency issues
+            LoggingServiceRegistry freshLoggingServices = LoggingServiceRegistry.newEmbeddableLogging();
+            DaemonClientServices clientServices = new DaemonClientServices(freshLoggingServices, daemonBaseDir, getDaemonOpts(), getIdleTimeout(operationParameters));
             DaemonClient client = clientServices.get(DaemonClient.class);
             executer = new DaemonGradleLauncherActionExecuter(client);
+            loggingManagerFactory = freshLoggingServices.getFactory(LoggingManagerInternal.class);
         }
-        return new LoggingBridgingGradleLauncherActionExecuter(executer, loggingServices.getFactory(LoggingManagerInternal.class));
+        return new LoggingBridgingGradleLauncherActionExecuter(executer, loggingManagerFactory);
     }
 
     private List<String> getDaemonOpts() {

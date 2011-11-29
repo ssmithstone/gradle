@@ -16,6 +16,7 @@
 package org.gradle.tooling.internal.consumer;
 
 import org.gradle.StartParameter;
+import org.gradle.api.internal.Factory;
 import org.gradle.api.internal.project.DefaultServiceRegistry;
 import org.gradle.listener.DefaultListenerManager;
 import org.gradle.listener.ListenerManager;
@@ -38,7 +39,15 @@ public class ConnectorServiceRegistry extends DefaultServiceRegistry {
     }
 
     protected ConnectionFactory createConnectionFactory() {
-        return new ConnectionFactory(get(ToolingImplementationLoader.class), get(ListenerManager.class), get(ProgressLoggerFactory.class));
+        return new ConnectionFactory(get(ToolingImplementationLoader.class), getFactory(ListenerManager.class), get(ProgressLoggerFactory.class));
+    }
+
+    protected Factory<ListenerManager> createListenerManagerFactory() {
+        return new Factory<ListenerManager>() {
+            public ListenerManager create() {
+                return ConnectorServiceRegistry.this.createListenerManager();
+            }
+        };
     }
 
     protected DistributionFactory createDistributionFactory() {

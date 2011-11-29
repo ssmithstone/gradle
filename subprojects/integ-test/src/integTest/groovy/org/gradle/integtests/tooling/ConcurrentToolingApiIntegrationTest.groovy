@@ -18,9 +18,9 @@ package org.gradle.integtests.tooling
 
 import org.gradle.integtests.fixtures.GradleDistribution
 import org.gradle.integtests.tooling.fixture.ToolingApi
+import org.gradle.tooling.ProjectConnection
 import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.util.ConcurrentSpecification
-import spock.lang.Ignore
 import spock.lang.Issue
 
 // TODO - this needs to cover cross-version compatibility (ie can run concurrent builds for any target gradle >= 1.0-milestone-7)
@@ -30,7 +30,6 @@ class ConcurrentToolingApiIntegrationTest extends ConcurrentSpecification {
     def dist = new GradleDistribution()
     def toolingApi = new ToolingApi(dist)
 
-    @Ignore
     @Issue("GRADLE-1933")
     def "handles concurrent scenario"() {
         dist.file('build.gradle')  << """
@@ -38,21 +37,24 @@ apply plugin: 'java'
         """
 
         when:
-        shortTimeout = 20000
+        shortTimeout = 30000
 
-        start { fetchModel() }
-        start { fetchModel() }
+        10.times {
+            start { fetchModel() }
+        }
 
         then:
-        //fails most of the time
+        //it deals with concurrency issues, may not fail every single time
         finished()
     }
 
     def fetchModel() {
-        toolingApi.withConnection {
+        toolingApi.withConnection { ProjectConnection connection ->
             try {
-                def model = it.getModel(IdeaProject)
+                def model = connection.getModel(IdeaProject)
                 assert model != null
+                //a bit more stress:
+                connection.newBuild().forTasks('tasks').run()
             } catch (Exception e) {
                 throw new RuntimeException("""Looks like we've hit a concurrency problem.
 See the full stacktrace and the list of causes to investigate""", e);

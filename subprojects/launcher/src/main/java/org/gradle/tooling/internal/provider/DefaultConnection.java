@@ -18,7 +18,6 @@ package org.gradle.tooling.internal.provider;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
-import org.gradle.GradleLauncher;
 import org.gradle.StartParameter;
 import org.gradle.api.internal.Factory;
 import org.gradle.api.internal.project.ServiceRegistry;
@@ -49,9 +48,10 @@ public class DefaultConnection implements ConnectionVersion4 {
 
     public DefaultConnection() {
         LOGGER.debug("Using tooling API provider version {}.", GradleVersion.current().getVersion());
+
+        //below is only used for embedded daemon
         loggingServices = LoggingServiceRegistry.newEmbeddableLogging();
         gradleLauncherFactory = new DefaultGradleLauncherFactory(loggingServices);
-        GradleLauncher.injectCustomFactory(gradleLauncherFactory);
     }
 
     public ConnectionMetaDataVersion1 getMetaData() {

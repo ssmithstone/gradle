@@ -18,6 +18,7 @@ package org.gradle.integtests.tooling
 
 import org.gradle.integtests.fixtures.GradleDistribution
 import org.gradle.integtests.tooling.fixture.ToolingApi
+import org.gradle.tooling.ProgressListener
 import org.gradle.tooling.ProjectConnection
 import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.util.ConcurrentSpecification
@@ -30,6 +31,10 @@ class ConcurrentToolingApiIntegrationTest extends ConcurrentSpecification {
     def dist = new GradleDistribution()
     def toolingApi = new ToolingApi(dist)
 
+    def setup() {
+        toolingApi.isEmbedded = false
+    }
+
     @Issue("GRADLE-1933")
     def "handles concurrent scenario"() {
         dist.file('build.gradle')  << """
@@ -39,7 +44,7 @@ apply plugin: 'java'
         when:
         shortTimeout = 30000
 
-        10.times {
+        5.times {
             start { fetchModel() }
         }
 
@@ -60,5 +65,66 @@ apply plugin: 'java'
 See the full stacktrace and the list of causes to investigate""", e);
             }
         }
+    }
+
+    //TODO SF - below tests are copied over from relevant tooling api integ tests
+    //they will grow into concurrent scenarios where I will check if the right build writes to the right listener
+
+    def "receives progress and logging while the model is building"() {
+        dist.testFile('build.gradle') << '''
+System.out.println 'this is stdout'
+System.err.println 'this is stderr'
+'''
+
+        def stdout = new ByteArrayOutputStream()
+        def stderr = new ByteArrayOutputStream()
+        def progressMessages = []
+
+        when:
+        toolingApi.withConnection { connection ->
+            def model = connection.model(Project.class)
+            model.standardOutput = stdout
+            model.standardError = stderr
+            model.addProgressListener({ event -> progressMessages << event.description } as ProgressListener)
+            return model.get()
+        }
+
+        then:
+        stdout.toString().contains('this is stdout')
+        stderr.toString().contains('this is stderr')
+        progressMessages.size() >= 2
+        progressMessages.pop() == ''
+        progressMessages.every { it }
+    }
+
+     def "receives progress and logging while the build is executing"() {
+        this.toolingApi.isEmbedded = false
+        dist.testFile('build.gradle') << '''
+System.out.println 'this is stdout'
+System.err.println 'this is stderr'
+'''
+        def stdout = new ByteArrayOutputStream()
+        def stderr = new ByteArrayOutputStream()
+        def progressMessages = []
+        def events = []
+
+        when:
+        toolingApi.withConnection { connection ->
+            def build = connection.newBuild()
+            build.standardOutput = stdout
+            build.standardError = stderr
+            build.addProgressListener({ event ->
+                progressMessages << event.description
+                events << event
+            } as ProgressListener)
+            build.run()
+        }
+
+        then:
+        stdout.toString().contains('this is stdout')
+        stderr.toString().contains('this is stderr')
+        progressMessages.size() >= 2
+        progressMessages.pop() == ''
+        progressMessages.every { it }
     }
 }

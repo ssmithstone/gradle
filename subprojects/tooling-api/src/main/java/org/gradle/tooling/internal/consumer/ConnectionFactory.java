@@ -15,7 +15,6 @@
  */
 package org.gradle.tooling.internal.consumer;
 
-import org.gradle.api.internal.Factory;
 import org.gradle.listener.ListenerManager;
 import org.gradle.logging.ProgressLoggerFactory;
 import org.gradle.messaging.concurrent.DefaultExecutorFactory;
@@ -31,17 +30,17 @@ public class ConnectionFactory {
     private final ProtocolToModelAdapter adapter = new ProtocolToModelAdapter();
     private final ToolingImplementationLoader toolingImplementationLoader;
     private final DefaultExecutorFactory executorFactory = new DefaultExecutorFactory();
-    private final Factory<ListenerManager> listenerManagerFactory;
+    private final ListenerManager listenerManager;
     private final ProgressLoggerFactory progressLoggerFactory;
 
-    public ConnectionFactory(ToolingImplementationLoader toolingImplementationLoader, Factory<ListenerManager> listenerManagerFactory, ProgressLoggerFactory progressLoggerFactory) {
+    public ConnectionFactory(ToolingImplementationLoader toolingImplementationLoader, ListenerManager listenerManager, ProgressLoggerFactory progressLoggerFactory) {
         this.toolingImplementationLoader = toolingImplementationLoader;
-        this.listenerManagerFactory = listenerManagerFactory;
+        this.listenerManager = listenerManager;
         this.progressLoggerFactory = progressLoggerFactory;
     }
 
     public ProjectConnection create(Distribution distribution, ConnectionParameters parameters) {
-        ConnectionVersion4 connection = new ProgressLoggingConnection(new LazyConnection(distribution, toolingImplementationLoader), progressLoggerFactory, listenerManagerFactory);
+        ConnectionVersion4 connection = new ProgressLoggingConnection(new LazyConnection(distribution, toolingImplementationLoader), progressLoggerFactory, listenerManager);
         AsyncConnection asyncConnection = new DefaultAsyncConnection(connection, executorFactory);
         return new DefaultProjectConnection(asyncConnection, adapter, parameters);
     }

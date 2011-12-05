@@ -15,7 +15,6 @@
  */
 package org.gradle.tooling.internal.consumer;
 
-import org.gradle.api.internal.Factory;
 import org.gradle.listener.ListenerManager;
 import org.gradle.logging.ProgressLogger;
 import org.gradle.logging.ProgressLoggerFactory;
@@ -31,12 +30,12 @@ import org.gradle.tooling.internal.protocol.*;
 public class ProgressLoggingConnection implements ConnectionVersion4 {
     private final ConnectionVersion4 connection;
     private final ProgressLoggerFactory progressLoggerFactory;
-    private final Factory<ListenerManager> listenerManagerFactory;
+    private final ListenerManager listenerManager;
 
-    public ProgressLoggingConnection(ConnectionVersion4 connection, ProgressLoggerFactory progressLoggerFactory, Factory<ListenerManager> listenerManagerFactory) {
+    public ProgressLoggingConnection(ConnectionVersion4 connection, ProgressLoggerFactory progressLoggerFactory, ListenerManager listenerManager) {
         this.connection = connection;
         this.progressLoggerFactory = progressLoggerFactory;
-        this.listenerManagerFactory = listenerManagerFactory;
+        this.listenerManager = listenerManager;
     }
 
     public void stop() {
@@ -66,7 +65,6 @@ public class ProgressLoggingConnection implements ConnectionVersion4 {
 
     private <T> T run(String description, BuildOperationParametersVersion1 parameters, BuildAction<T> action) {
         ProgressListenerAdapter listener = new ProgressListenerAdapter(parameters.getProgressListener());
-        ListenerManager listenerManager = listenerManagerFactory.create();
 
         listenerManager.addListener(listener);
         try {
